@@ -83,33 +83,27 @@
 {$DEFINE SUPER_METHOD}
 {.$DEFINE DEBUG} // track memory leack
 
-
-{$if defined(VER210) or defined(VER220)}
-  {$define VER210ORGREATER}
-{$ifend}
-
-{$if defined(VER230) or defined(VER240)  or defined(VER250) or
-     defined(VER260) or defined(VER270)  or defined(VER280)}
-  {$define VER210ORGREATER}
-  {$define VER230ORGREATER}
-{$ifend}
-
-{$if defined(FPC) or defined(VER170) or defined(VER180) or defined(VER190)
-  or defined(VER200) or defined(VER210ORGREATER)}
+{$IF defined(DCC) and (CompilerVersion >= 2.1)}
+  {$DEFINE VER210ORGREATER}
+{$IFEND}
+{$IF defined(DCC) and (CompilerVersion >= 2.3)}
+  {$DEFINE VER230ORGREATER}
+{$IFEND}
+{$IF defined(FPC)}
   {$DEFINE HAVE_INLINE}
-{$ifend}
-
-{$if defined(VER210ORGREATER)}
-  {$define HAVE_RTTI}
-{$ifend}
-
-{$if defined(VER230ORGREATER)}
-  {$define NEED_FORMATSETTINGS}
-{$ifend}
-
-{$if defined(FPC) and defined(VER2_6)}
-  {$define NEED_FORMATSETTINGS}
-{$ifend}
+{$IFEND}
+{$IF defined(DCC) and (CompilerVersion >= 1.7)}
+  {$DEFINE HAVE_INLINE}
+{$IFEND}
+{$IF defined(VER210ORGREATER)}
+  {$DEFINE HAVE_RTTI}
+{$IFEND}
+{$IF defined(VER230ORGREATER)}
+  {$DEFINE NEED_FORMATSETTINGS}
+{$IFEND}
+{$IF defined(FPC) and defined(VER2_6)}
+  {$DEFINE NEED_FORMATSETTINGS}
+{$IFEND}
 
 {$OVERFLOWCHECKS OFF}
 {$RANGECHECKS OFF}
