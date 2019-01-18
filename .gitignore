@@ -1,2 +1,7 @@
 *.dcu
 __history
+/tests/dxunit/Win32
+/tests/dxunit/*.local
+/tests/dxunit/*.identcache
+/tests/dxunit/*.res
+/tests/dxunit/*.stat

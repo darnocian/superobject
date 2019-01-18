@@ -6467,24 +6467,19 @@ begin
     var
       I: TSuperObjectIter;
       ov: ISuperObject;
-      rt, kvt, vvt: TRttiType;
+      rt, kvt: TRttiType;
       val: Tvalue;
       kv, vv: Tvalue;
       M: TRttiMethod;
-      S: string;
       T: TRttiInstanceType;
-
     begin
-      S := cn.ToString;
       rt := Context.GetType(TypeInfo);
       try
         T := rt.AsInstance;
         val := T.GetMethod('Create').Invoke(T.MetaclassType, [nil]);
-
         writeln(GetTypeName(val.TypeInfo));
         value := val;
         kvt := TryfindType(cn.Generics[0].ToString);
-        // vvt := TryfindType(cn.Generics[1].ToString);
         M := rt.GetMethod('Add');
         if ObjectFindFirst(Obj, I) then
         begin
@@ -6500,9 +6495,9 @@ begin
               end;
               M.Invoke(val, [kv, vv]);
             until not ObjectFindNext(I);
+            Result := true;
           finally
             ObjectFindClose(I);
-
           end;
         end;
       except
@@ -6519,21 +6514,17 @@ begin
     procedure FromList(cn: IGenericClassName);
     var
       I: ISuperObject;
-      //ov: ISuperObject;
       rt, kvt: TRttiType;
       val: Tvalue;
       kv: Tvalue;
       M: TRttiMethod;
       S: string;
       T: TRttiInstanceType;
-
     begin
+      rt := TryfindType(cn.ToString);
       try
-        S := cn.ToString;
-        rt := TryfindType(S);
         T := rt.AsInstance;
         val := T.GetMethod('Create').Invoke(T.MetaclassType, []);
-
         writeln(GetTypeName(val.TypeInfo));
         value := val;
         kvt := TryfindType(cn.Generics[0].ToString);
@@ -6548,7 +6539,7 @@ begin
           end;
           M.Invoke(val, [kv]);
         end;
-
+        Result := true;
       except
         if not value.IsEmpty then
         begin
@@ -6564,28 +6555,20 @@ begin
     var
       F: TRttiField;
       v: Tvalue;
-      //T: string;
       cn: IGenericClassName;
-
     begin
       case ObjectGetType(Obj) of
         stArray:
           begin
-            Result := true;
             cn := TGenericClassName.Create(GetTypeName(TypeInfo));
             if cn.BaseType = 'tlist' then
-            begin
               FromList(cn);
-            end;
           end;
         stObject:
           begin
-            Result := true;
             cn := TGenericClassName.Create(GetTypeName(TypeInfo));
             if cn.BaseType = 'tdictionary' then
-            begin
-              FromDictionary(cn);
-            end
+              FromDictionary(cn)
             else
             begin
 
@@ -6948,7 +6931,6 @@ begin
 
     procedure ToList(cn: IGenericClassName);
     var
-      l: TList<Integer>;
       TypeInfo: PTypeInfo;
       rt: TRttiType;
       p: trttiproperty;
@@ -6965,7 +6947,6 @@ begin
       p := rt.GetProperty('Count');
       C := p.Getvalue(value.AsObject).AsInteger;
       M := rt.GetMethod('GetItem');
-      I := 0;
       for I := 0 to C - 1 do
       begin
         Iv := I;
@@ -6976,16 +6957,12 @@ begin
 
     procedure ToDictionary(cn: IGenericClassName);
     var
-      l: TDictionary<Integer, Integer>;
       TypeInfo: PTypeInfo;
-      rt, et, pt, kt, vt: TRttiType;
+      rt, et, pt: TRttiType;
       kf, vf: TRttiField;
       p: trttiproperty;
-      me, M, F, mn: TRttiMethod;
-      C: Integer;
-      e, v, kv, vv, val: Tvalue;
-      I: Tvalue;
-      // TPairEnumerator
+      me, F, mn: TRttiMethod;
+      e, v, kv, vv: Tvalue;
     begin
       TypeInfo := TvalueData(value).FtypeInfo;
       Result := TSuperObject.Create(stObject);
@@ -6995,7 +6972,6 @@ begin
       e := me.Invoke(value, []);
       et := Context.GetType(TvalueData(e).FtypeInfo);
       try
-
         mn := et.GetMethod('MoveNext');
         p := et.GetProperty('Current');
         // get type of property
@@ -7006,27 +6982,16 @@ begin
         begin
           // get the pair
           v := p.Getvalue(e.AsObject);
-
           kv := kf.Getvalue(v.GetReferenceToRawData);
           vv := vf.Getvalue(v.GetReferenceToRawData);
-
-           Result.AsObject[kv.tostring] := ToJson(vv, index);
-
+          Result.AsObject[kv.ToString] := ToJson(vv, index);
         end;
-
       finally
         // free the enumerator
         et := Context.GetType(TvalueData(e).FtypeInfo);
         F := et.GetMethod('Free');
         F.Invoke(e, []);
       end;
-      (*
-        p := rt.GetProperty('Count');
-        C := p.Getvalue(value.AsObject).AsInteger;
-        M := rt.GetMethod('GetItem');
-        I := 0;
-        v := M.Invoke(value, [I]); *)
-
     end;
 
     procedure ToClass;
@@ -7036,21 +7001,15 @@ begin
       v: Tvalue;
       cn: IGenericClassName;
     begin
-
       if TvalueData(value).FAsObject <> nil then
       begin
         cn := TGenericClassName.Create(GetTypeName(TvalueData(value).FtypeInfo));
         if cn.BaseType = 'tdictionary' then
-        begin
-          ToDictionary(cn);
-        end
+          ToDictionary(cn)
         else if cn.BaseType = 'tlist' then
-        begin
-          ToList(cn);
-        end
+          ToList(cn)
         else
         begin
-
           O := index[IntToStr(NativeInt(value.AsObject))];
           if O = nil then
           begin
