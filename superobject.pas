@@ -6459,27 +6459,8 @@ begin
     end;
 
     function TryfindType(N: string): TRttiType;
-    var
-      O: string;
     begin
-      N := lowercase(trimName(N));
-
-      Result := TTypeInfoCache.Instance.get(N);
-
-      (*
-        for Result in Context.gettypes do
-        begin
-        O := lowercase(Result.Name);
-        writeln(O);
-        if O = N then
-        begin
-        writeln('found: ' + N);
-        Exit;
-        end;
-        end;
-
-        writeln('not found: ' + N);
-        Result := nil; *)
+      Result := TTypeInfoCache.Instance.get(lowercase(trimName(N)));
     end;
 
     procedure FromDictionary(cn: IGenericClassName);
@@ -6494,16 +6475,16 @@ begin
       T: TRttiInstanceType;
 
     begin
+      S := cn.ToString;
+      rt := Context.GetType(TypeInfo);
       try
-        S := cn.ToString;
-        rt := Context.GetType(TypeInfo);
         T := rt.AsInstance;
         val := T.GetMethod('Create').Invoke(T.MetaclassType, [nil]);
 
         writeln(GetTypeName(val.TypeInfo));
         value := val;
         kvt := TryfindType(cn.Generics[0].ToString);
-        vvt := TryfindType(cn.Generics[1].ToString);
+        // vvt := TryfindType(cn.Generics[1].ToString);
         M := rt.GetMethod('Add');
         if ObjectFindFirst(Obj, I) then
         begin
@@ -6538,7 +6519,7 @@ begin
     procedure FromList(cn: IGenericClassName);
     var
       I: ISuperObject;
-      ov: ISuperObject;
+      //ov: ISuperObject;
       rt, kvt: TRttiType;
       val: Tvalue;
       kv: Tvalue;
@@ -6583,7 +6564,7 @@ begin
     var
       F: TRttiField;
       v: Tvalue;
-      T: string;
+      //T: string;
       cn: IGenericClassName;
 
     begin
@@ -6965,28 +6946,126 @@ begin
       Result := TSuperObject.Create(string(value.AsType<string>));
     end;
 
+    procedure ToList(cn: IGenericClassName);
+    var
+      l: TList<Integer>;
+      TypeInfo: PTypeInfo;
+      rt: TRttiType;
+      p: trttiproperty;
+      M: TRttiMethod;
+      C: Integer;
+      v: Tvalue;
+      I: Integer;
+      Iv: Tvalue;
+    begin
+
+      TypeInfo := TvalueData(value).FtypeInfo;
+      Result := TSuperObject.Create(stArray);
+      rt := Context.GetType(TypeInfo);
+      p := rt.GetProperty('Count');
+      C := p.Getvalue(value.AsObject).AsInteger;
+      M := rt.GetMethod('GetItem');
+      I := 0;
+      for I := 0 to C - 1 do
+      begin
+        Iv := I;
+        v := M.Invoke(value, [Iv]);
+        Result.AsArray.Add(ToJson(v, index))
+      end;
+    end;
+
+    procedure ToDictionary(cn: IGenericClassName);
+    var
+      l: TDictionary<Integer, Integer>;
+      TypeInfo: PTypeInfo;
+      rt, et, pt, kt, vt: TRttiType;
+      kf, vf: TRttiField;
+      p: trttiproperty;
+      me, M, F, mn: TRttiMethod;
+      C: Integer;
+      e, v, kv, vv, val: Tvalue;
+      I: Tvalue;
+      // TPairEnumerator
+    begin
+      TypeInfo := TvalueData(value).FtypeInfo;
+      Result := TSuperObject.Create(stObject);
+      rt := Context.GetType(TypeInfo);
+      // get the enumerator
+      me := rt.GetMethod('GetEnumerator');
+      e := me.Invoke(value, []);
+      et := Context.GetType(TvalueData(e).FtypeInfo);
+      try
+
+        mn := et.GetMethod('MoveNext');
+        p := et.GetProperty('Current');
+        // get type of property
+        pt := p.propertyType;
+        kf := pt.getfield('Key');
+        vf := pt.getfield('Value');
+        while mn.Invoke(e, []).AsBoolean do
+        begin
+          // get the pair
+          v := p.Getvalue(e.AsObject);
+
+          kv := kf.Getvalue(v.GetReferenceToRawData);
+          vv := vf.Getvalue(v.GetReferenceToRawData);
+
+           Result.AsObject[kv.tostring] := ToJson(vv, index);
+
+        end;
+
+      finally
+        // free the enumerator
+        et := Context.GetType(TvalueData(e).FtypeInfo);
+        F := et.GetMethod('Free');
+        F.Invoke(e, []);
+      end;
+      (*
+        p := rt.GetProperty('Count');
+        C := p.Getvalue(value.AsObject).AsInteger;
+        M := rt.GetMethod('GetItem');
+        I := 0;
+        v := M.Invoke(value, [I]); *)
+
+    end;
+
     procedure ToClass;
     var
       O: ISuperObject;
       F: TRttiField;
       v: Tvalue;
+      cn: IGenericClassName;
     begin
+
       if TvalueData(value).FAsObject <> nil then
       begin
-        O := index[IntToStr(NativeInt(value.AsObject))];
-        if O = nil then
+        cn := TGenericClassName.Create(GetTypeName(TvalueData(value).FtypeInfo));
+        if cn.BaseType = 'tdictionary' then
         begin
-          Result := TSuperObject.Create(stObject);
-          index[IntToStr(NativeInt(value.AsObject))] := Result;
-          for F in Context.GetType(value.AsObject.ClassType).GetFields do
-            if F.FieldType <> nil then
-            begin
-              v := F.Getvalue(value.AsObject);
-              Result.AsObject[GetFieldName(F)] := ToJson(v, index);
-            end
+          ToDictionary(cn);
+        end
+        else if cn.BaseType = 'tlist' then
+        begin
+          ToList(cn);
         end
         else
-          Result := O;
+        begin
+
+          O := index[IntToStr(NativeInt(value.AsObject))];
+          if O = nil then
+          begin
+            Result := TSuperObject.Create(stObject);
+            index[IntToStr(NativeInt(value.AsObject))] := Result;
+            for F in Context.GetType(value.AsObject.ClassType).GetFields do
+              if F.FieldType <> nil then
+              begin
+                v := F.Getvalue(value.AsObject);
+                Result.AsObject[GetFieldName(F)] := ToJson(v, index);
+              end
+          end
+          else
+            Result := O;
+        end;
       end
       else
         Result := nil;
